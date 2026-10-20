@@ -1,0 +1,307 @@
+import { useState } from 'react'
+import Icon from './Icons'
+import Timer, { SessionHistory } from './Timer'
+import { duration, timestamp } from './format'
+
+export function Stats({ data }) {
+  const s = data.stats
+  return (
+    <div className="stats-grid">
+      {[
+        {
+          label: 'Focus today',
+          value: duration(s.today_seconds),
+          note: `${s.today_sessions} completed ${s.today_sessions === 1 ? 'session' : 'sessions'}`,
+          icon: 'timer',
+        },
+        {
+          label: 'Sessions completed',
+          value: s.completed_sessions,
+          note: 'Every session is a small win',
+          icon: 'check',
+        },
+        {
+          label: 'Current streak',
+          value: `${s.current_streak} ${s.current_streak === 1 ? 'day' : 'days'}`,
+          note: `Personal best: ${s.longest_streak} days`,
+          icon: 'flame',
+        },
+        {
+          label: 'Focus points',
+          value: data.points,
+          note: 'Earned through intentional work',
+          icon: 'bolt',
+        },
+      ].map((m) => (
+        <section className="card stat-card" key={m.label}>
+          <div>
+            <span>{m.label}</span>
+            <Icon name={m.icon} />
+          </div>
+          <strong>{m.value}</strong>
+          <p>{m.note}</p>
+        </section>
+      ))}
+    </div>
+  )
+}
+export function WeekChart({ stats, large = false }) {
+  const max = Math.max(1800, ...stats.daily.map((d) => d.seconds))
+  return (
+    <section className={`card week-card ${large ? 'large-chart' : ''}`}>
+      <div className="card-heading">
+        <div>
+          <span className="eyebrow">BUILDING CONSISTENCY</span>
+          <h2>Your focus, this week</h2>
+        </div>
+        <span className="chart-total">
+          {duration(stats.week_seconds)}
+          <small>last 7 days</small>
+        </span>
+      </div>
+      <div className="chart-body">
+        <div className="chart-scale">
+          <span>{Math.ceil(max / 60)}m</span>
+          <span>{Math.ceil(max / 120)}m</span>
+          <span>0m</span>
+        </div>
+        <div
+          className="week-chart"
+          role="img"
+          aria-label={`Focus minutes by day: ${stats.daily.map((d) => `${d.date}: ${Math.round(d.seconds / 60)}`).join(', ')}`}
+        >
+          {stats.daily.map((d) => (
+            <div className={`bar-column ${d.today ? 'today' : ''}`} key={d.date}>
+              <div className="bar-space">
+                <span
+                  className="bar"
+                  style={{ height: d.seconds ? `${Math.max(2, (d.seconds / max) * 100)}%` : '0%' }}
+                />
+                <span className="bar-value">{Math.round(d.seconds / 60)}m</span>
+              </div>
+              <span className="bar-label">
+                {d.label}
+                {d.today && <i />}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="chart-caption">
+        <span className="legend-dot" />
+        Completed focus time
+        <span>
+          {stats.week_seconds
+            ? 'Small steps add up. Keep going.'
+            : 'Your first session will bring this chart to life.'}
+        </span>
+      </div>
+    </section>
+  )
+}
+const eventCopy = {
+  session_started: 'Session started',
+  session_paused: 'Session paused',
+  session_resumed: 'Back in the flow',
+  session_completed: 'Session completed',
+  session_cancelled: 'Session reset',
+  room_joined: 'Joined a focus room',
+  room_left: 'Left a focus room',
+  resource_blocked: 'Distraction intercepted',
+  achievement_unlocked: 'Achievement unlocked',
+  reward_created: 'Focus points earned',
+}
+const eventIcon = {
+  session_completed: 'check',
+  session_cancelled: 'reset',
+  session_paused: 'pause',
+  session_resumed: 'play',
+  room_joined: 'rooms',
+  room_left: 'rooms',
+  resource_blocked: 'shield',
+  achievement_unlocked: 'award',
+  reward_created: 'bolt',
+}
+export function Activity({ events, compact = false, onNavigate }) {
+  const [filter, setFilter] = useState('all')
+  const list = events
+    .filter(
+      (e) =>
+        filter === 'all' ||
+        (filter === 'sessions'
+          ? e.event_type.startsWith('session_')
+          : filter === 'rooms'
+            ? e.event_type.startsWith('room_')
+            : filter === 'rewards'
+              ? ['achievement_unlocked', 'reward_created'].includes(e.event_type)
+              : e.event_type === 'resource_blocked')
+    )
+    .slice(0, compact ? 5 : 100)
+  return (
+    <section className="card activity-card">
+      <div className="card-heading">
+        <div>
+          <h2>{compact ? 'Recent activity' : 'Your activity timeline'}</h2>
+          {!compact && <p className="muted small">Only events inside Zenith are recorded.</p>}
+        </div>
+        {compact ? (
+          <button className="text-button" onClick={() => onNavigate('Activity & Analytics')}>
+            View all <Icon name="arrow" size={13} />
+          </button>
+        ) : (
+          <select
+            aria-label="Filter activity"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <option value="all">All events</option>
+            <option value="sessions">Sessions</option>
+            <option value="rooms">Rooms</option>
+            <option value="rewards">Rewards</option>
+            <option value="blocker">Blocker</option>
+          </select>
+        )}
+      </div>
+      {list.length ? (
+        <div className="activity-list">
+          {list.map((e) => (
+            <div className="activity-item" key={e.id}>
+              <span
+                className={`activity-icon ${e.event_type === 'session_completed' ? 'green' : ''}`}
+              >
+                <Icon name={eventIcon[e.event_type] || 'timer'} size={16} />
+              </span>
+              <div>
+                <strong>{eventCopy[e.event_type] || e.event_type}</strong>
+                <p>
+                  {e.details.name ||
+                    e.details.room_name ||
+                    e.details.domain ||
+                    (e.details.points
+                      ? `+${e.details.points} points`
+                      : e.details.minutes
+                        ? `${e.details.minutes} minutes · ${e.details.kind === 'focus' ? 'Focused work' : 'Break time'}`
+                        : 'One step in your focus journey')}
+                </p>
+              </div>
+              <time dateTime={new Date(e.created_at).toISOString()}>{timestamp(e.created_at)}</time>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty">
+          <Icon name="leaf" size={28} />
+          <h3>A fresh start looks good on you.</h3>
+          <p>Your sessions, room activity, and milestones will appear here.</p>
+        </div>
+      )}
+    </section>
+  )
+}
+export function Dashboard({ data, act, onNavigate }) {
+  const joined = (data.rooms || []).filter(
+    (r) => r.status === 'open' && r.participants.some((p) => p.user_id === data.user.id)
+  )
+  return (
+    <>
+      <Stats data={data} />
+      <div className="dashboard-grid">
+        <Timer data={data} act={act} compact onNavigate={onNavigate} />
+        <div className="dashboard-right">
+          <WeekChart stats={data.stats} />
+          <section className="card intention-card">
+            <div className="tile-icon">
+              <Icon name="leaf" size={23} />
+            </div>
+            <div>
+              <div className="eyebrow">A GENTLE REMINDER</div>
+              <h2>Progress has a quiet rhythm.</h2>
+              <p>
+                Pick one thing. Give it your attention.
+                <br />
+                You don’t have to do it all today.
+              </p>
+            </div>
+            <span className="intention-art" aria-hidden="true">
+              ✳
+            </span>
+          </section>
+        </div>
+      </div>
+      <div className="dashboard-bottom">
+        <Activity events={data.events} compact onNavigate={onNavigate} />
+        <section className="card rooms-preview">
+          <div className="card-heading">
+            <h2>Your focus rooms</h2>
+            <Icon name="rooms" />
+          </div>
+          {joined.length ? (
+            <div className="room-preview-list">
+              {joined.slice(0, 3).map((r) => (
+                <button key={r.id} onClick={() => onNavigate('Focus Rooms')}>
+                  <span className="tile-icon">
+                    <Icon name="rooms" size={18} />
+                  </span>
+                  <span>
+                    <strong>{r.name}</strong>
+                    <small>
+                      {r.participants.length} members · {r.planned_minutes} min
+                    </small>
+                  </span>
+                  <Icon name="arrow" size={15} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="empty">
+              <Icon name="rooms" size={28} />
+              <h3>A little company helps.</h3>
+              <p>
+                Create a local study space and
+                <br />
+                make focus a shared intention.
+              </p>
+            </div>
+          )}
+          <button className="secondary wide" onClick={() => onNavigate('Focus Rooms')}>
+            {joined.length ? 'Explore your rooms' : 'Find your focus room'}{' '}
+            <Icon name="arrow" size={14} />
+          </button>
+          <p className="muted small center">Local collaboration · This Mac only</p>
+        </section>
+      </div>
+    </>
+  )
+}
+export default function Analytics({ data }) {
+  return (
+    <>
+      <Stats data={data} />
+      <div className="analytics-top">
+        <WeekChart stats={data.stats} large />
+        <section className="card consistency">
+          <div className="eyebrow">THE BIGGER PICTURE</div>
+          <h2>Built one day at a time.</h2>
+          <div>
+            <span>All-time focus</span>
+            <strong>{duration(data.stats.total_seconds)}</strong>
+          </div>
+          <div>
+            <span>Longest streak</span>
+            <strong>{data.stats.longest_streak} days</strong>
+          </div>
+          <div>
+            <span>Completion rate</span>
+            <strong>{data.stats.finished_sessions ? `${data.stats.completion_rate}%` : '—'}</strong>
+          </div>
+          <p className="muted small">
+            Completion rate compares completed and cancelled focus sessions. Breaks and active
+            timers are excluded.
+          </p>
+        </section>
+      </div>
+      <Activity events={data.events} />
+      <SessionHistory sessions={data.sessions} />
+    </>
+  )
+}

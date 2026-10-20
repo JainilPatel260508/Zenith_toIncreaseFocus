@@ -1,0 +1,6 @@
+import { useState } from 'react'
+
+export default function App() {
+  const [page, setPage] = useState('Dashboard')
+  return <div className="shell"><aside><div className="brand"><span className="brand-mark">Z</span>zenith<span className="brand-dot">.</span></div><div className="nav-label">YOUR WORKSPACE</div><nav>{['Dashboard','Focus Timer','Focus Rooms','Activity & Analytics','Website Blocker','Achievements','Profile & Settings'].map(item => <button key={item} className={page === item ? 'active' : ''} onClick={() => setPage(item)}>{item}</button>)}</nav><footer>Made for meaningful work.<br/><small>LOCAL WORKSPACE · v1.0</small></footer></aside><main><header><span>Your personal workspace</span><span className="badge">● All systems local</span></header><div className="page"><div className="eyebrow">A LITTLE MORE FOCUS. EVERY DAY.</div><h1>{page === 'Dashboard' ? 'Make room for your best work.' : page}</h1><p className="muted">A calm space to build momentum, one session at a time.</p><section className="card welcome"><span className="eyebrow">YOUR NEXT CHAPTER</span><h2>Small steps. Meaningful progress.</h2><p>Zenith keeps your focus, habits, and progress together on this Mac.</p><button className="primary" onClick={() => setPage('Focus Timer')}>Find your focus →</button></section></div></main></div>
+}

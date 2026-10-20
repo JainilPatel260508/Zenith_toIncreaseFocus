@@ -1,0 +1,169 @@
+import { useState } from 'react'
+import { api } from './api'
+import Icon from './Icons'
+
+export default function Blocker({ data, act }) {
+  const [address, setAddress] = useState('')
+  const [result, setResult] = useState(null)
+  const [opening, setOpening] = useState(false)
+  async function add(e) {
+    e.preventDefault()
+    if (await act('add_resource', { domain: address })) setAddress('')
+  }
+  async function open(e) {
+    e.preventDefault()
+    setOpening(true)
+    setResult(null)
+    try {
+      const r = await api('open_resource', { url: new FormData(e.currentTarget).get('url') })
+      setResult({
+        allowed: r.allowed,
+        text: r.allowed
+          ? `${r.domain} opened in your default browser.`
+          : `${r.domain} is on your blocklist. Take a breath and return to what matters.`,
+      })
+      await act('snapshot')
+    } catch (e) {
+      setResult({ error: true, text: e.message })
+    } finally {
+      setOpening(false)
+    }
+  }
+  return (
+    <>
+      <div className="notice local-notice">
+        <Icon name="shield" />
+        <div>
+          <strong>A boundary for your attention.</strong>
+          <br />
+          Zenith checks links opened through the resource launcher below. It does not block Safari,
+          Chrome, other apps, or later browser redirects.
+        </div>
+      </div>
+      <section className="card focus-mode-card">
+        <span className="tile-icon">
+          <Icon name="shield" size={25} />
+        </span>
+        <div>
+          <h2>Focus mode</h2>
+          <p className="muted">
+            {data.user.focus_mode
+              ? 'Your enabled rules are protecting this resource launcher.'
+              : 'Rules are saved, but links are not currently blocked.'}
+          </p>
+        </div>
+        <button
+          className={`switch ${data.user.focus_mode ? 'on' : ''}`}
+          role="switch"
+          aria-checked={data.user.focus_mode}
+          aria-label="Focus mode"
+          onClick={() => act('set_focus_mode', { enabled: !data.user.focus_mode })}
+        >
+          <span />
+        </button>
+        <span className="status">{data.user.focus_mode ? 'Enabled' : 'Disabled'}</span>
+      </section>
+      <div className="blocker-grid">
+        <section className="card">
+          <div className="card-heading">
+            <h2>Your blocklist</h2>
+            <span className="status">
+              {data.resources.filter((r) => r.enabled).length} active rules
+            </span>
+          </div>
+          <p className="muted small">
+            Block a domain and its subdomains. Rules apply whenever focus mode is on.
+          </p>
+          <form className="inline-form" onSubmit={add}>
+            <input
+              aria-label="Domain to block"
+              placeholder="e.g. youtube.com"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              required
+              maxLength={2048}
+            />
+            <button className="primary">
+              <Icon name="plus" size={16} />
+              Add domain
+            </button>
+          </form>
+          {data.resources.length ? (
+            <div className="resource-list">
+              {data.resources.map((r) => (
+                <div className="resource-row" key={r.id}>
+                  <span className="activity-icon">
+                    <Icon name="globe" size={17} />
+                  </span>
+                  <div>
+                    <strong>{r.domain}</strong>
+                    <small>{r.enabled ? 'Domain + subdomains' : 'Rule paused'}</small>
+                  </div>
+                  <button
+                    className={`switch small-switch ${r.enabled ? 'on' : ''}`}
+                    role="switch"
+                    aria-checked={r.enabled}
+                    aria-label={`Block ${r.domain}`}
+                    onClick={() =>
+                      act('resource_action', {
+                        resource_id: r.id,
+                        operation: r.enabled ? 'disable' : 'enable',
+                      })
+                    }
+                  >
+                    <span />
+                  </button>
+                  <button
+                    className="text-button muted"
+                    aria-label={`Remove ${r.domain}`}
+                    onClick={() =>
+                      act('resource_action', { resource_id: r.id, operation: 'remove' })
+                    }
+                  >
+                    <Icon name="close" size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty">
+              <Icon name="shield" size={30} />
+              <h3>Make space for what matters.</h3>
+              <p>Add a distracting website to set your first boundary.</p>
+            </div>
+          )}
+        </section>
+        <section className="card resource-launcher">
+          <span className="tile-icon">
+            <Icon name="globe" size={24} />
+          </span>
+          <h2>Open with intention.</h2>
+          <p className="muted">Use this launcher to check your rules before opening a website.</p>
+          <form onSubmit={open}>
+            <label>
+              Website address
+              <input name="url" required maxLength={2048} placeholder="https://example.com" />
+            </label>
+            <button className="secondary wide" disabled={opening}>
+              <Icon name="arrow" size={16} />
+              {opening ? 'Checking your rules…' : 'Check & open resource'}
+            </button>
+          </form>
+          {result && (
+            <div
+              role="status"
+              className={result.error ? 'error' : result.allowed ? 'notice' : 'blocked-result'}
+            >
+              <Icon name={result.allowed ? 'check' : 'shield'} size={18} />
+              <p>{result.text}</p>
+            </div>
+          )}
+          <p className="muted small">
+            Only HTTP and HTTPS websites are supported. Allowed links open in your default browser.
+            Blocked attempts are recorded in your activity.
+          </p>
+        </section>
+      </div>
+    </>
+  )
+}

@@ -1,0 +1,25 @@
+[package]
+name = "zenith"
+version = "1.0.0"
+description = "A calm, local-first focus workspace"
+authors = ["Jainil Patel"]
+edition = "2021"
+
+[lib]
+name = "zenith_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
