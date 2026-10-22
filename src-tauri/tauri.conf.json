@@ -3,7 +3,7 @@
   "productName": "Zenith",
   "version": "1.0.0",
   "identifier": "com.jainilpatel.zenith",
-  "build": { "beforeDevCommand": "npm run dev", "beforeBuildCommand": "npm run build", "devUrl": "http://127.0.0.1:1420", "frontendDist": "../dist" },
+  "build": { "beforeDevCommand": "npm run dev", "beforeBuildCommand": "npm run build", "devUrl": "http://127.0.0.1:15420", "frontendDist": "../dist" },
   "app": {
     "windows": [{ "label": "main", "title": "Zenith", "width": 1240, "height": 850, "minWidth": 800, "minHeight": 640, "center": true, "backgroundColor": "#111315" }],
     "security": { "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'" }

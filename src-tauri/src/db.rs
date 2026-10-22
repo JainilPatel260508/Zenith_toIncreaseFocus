@@ -19,6 +19,8 @@ pub enum Request {
     Login { email: String, password: String },
     Logout,
     Snapshot,
+    StartSession { minutes: i64, kind: String, room_id: Option<i64> },
+    SessionAction { session_id: i64, operation: String },
     SaveSettings { display_name: String, email: String, focus_minutes: i64, short_break: i64, long_break: i64, theme: String, notifications: bool, session_points: i64 },
 }
 
@@ -83,6 +85,8 @@ impl Database {
             },
             Request::Logout => { self.user_id=None; return Ok(json!({"ok":true})); },
             Request::Snapshot => {},
+            Request::StartSession { minutes, kind, room_id } => { self.reconcile(now)?; self.start_session(minutes, &kind, room_id, now)?; },
+            Request::SessionAction { session_id, operation } => { self.session_action(session_id, &operation, now)?; },
             Request::SaveSettings { display_name, email, focus_minutes, short_break, long_break, theme, notifications, session_points } => {
                 let id=self.user()?;
                 let name=validate_name(&display_name)?; let email=validate_email(&email)?;
@@ -92,6 +96,7 @@ impl Database {
                 self.conn.execute("UPDATE users SET display_name=?,email=?,focus_minutes=?,short_break=?,long_break=?,theme=?,notifications=?,session_points=? WHERE id=?",params![name,email,focus_minutes,short_break,long_break,theme,notifications,session_points,id]).safe()?;
             },
         }
+        self.reconcile(now)?;
         self.snapshot(now)
     }
 
@@ -100,7 +105,12 @@ impl Database {
         let user=self.conn.query_row("SELECT id,email,display_name,focus_minutes,short_break,long_break,theme,notifications,focus_mode,session_points,created_at FROM users WHERE id=?",[id],|r| Ok(json!({
             "id":r.get::<_,i64>(0)?,"email":r.get::<_,String>(1)?,"display_name":r.get::<_,String>(2)?,"focus_minutes":r.get::<_,i64>(3)?,"short_break":r.get::<_,i64>(4)?,"long_break":r.get::<_,i64>(5)?,"theme":r.get::<_,String>(6)?,"notifications":r.get::<_,bool>(7)?,"focus_mode":r.get::<_,bool>(8)?,"session_points":r.get::<_,i64>(9)?,"created_at":r.get::<_,i64>(10)?
         }))).safe()?;
-        Ok(json!({"user":user,"server_now":now}))
+        let sessions=self.session_list(id)?;
+        let active=sessions.iter().find(|s| s["status"]=="running" || s["status"]=="paused").cloned();
+        let points:i64=self.conn.query_row("SELECT COALESCE(SUM(amount),0) FROM point_transactions WHERE user_id=?",[id],|r|r.get(0)).safe()?;
+        let mut stmt=self.conn.prepare("SELECT amount,reason,created_at,session_id FROM point_transactions WHERE user_id=? ORDER BY id DESC LIMIT 100").safe()?;
+        let transactions=stmt.query_map([id],|r|Ok(json!({"amount":r.get::<_,i64>(0)?,"reason":r.get::<_,String>(1)?,"created_at":r.get::<_,i64>(2)?,"session_id":r.get::<_,Option<i64>>(3)?}))).safe()?.collect::<rusqlite::Result<Vec<_>>>().safe()?;
+        Ok(json!({"user":user,"server_now":now,"sessions":sessions,"active_session":active,"points":points,"transactions":transactions}))
     }
 }
 

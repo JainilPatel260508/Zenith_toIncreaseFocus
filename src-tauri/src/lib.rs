@@ -1,4 +1,5 @@
 mod db;
+mod focus;
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -10,7 +11,7 @@ async fn request(state: tauri::State<'_, Mutex<db::Database>>, request: db::Requ
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let dir=app.path().app_data_dir()?;
+            let dir=std::env::var_os("ZENITH_DATA_DIR").map(std::path::PathBuf::from).unwrap_or(app.path().app_data_dir()?);
             std::fs::create_dir_all(&dir)?;
             #[cfg(unix)] {
                 use std::os::unix::fs::PermissionsExt;
