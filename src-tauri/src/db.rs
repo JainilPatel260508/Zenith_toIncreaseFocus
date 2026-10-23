@@ -19,6 +19,8 @@ pub enum Request {
     Login { email: String, password: String },
     Logout,
     Snapshot,
+    CreateRoom { name: String, description: String, minutes: i64 },
+    RoomAction { room_id: i64, operation: String, target_user_id: Option<i64> },
     StartSession { minutes: i64, kind: String, room_id: Option<i64> },
     SessionAction { session_id: i64, operation: String },
     SaveSettings { display_name: String, email: String, focus_minutes: i64, short_break: i64, long_break: i64, theme: String, notifications: bool, session_points: i64 },
@@ -85,6 +87,8 @@ impl Database {
             },
             Request::Logout => { self.user_id=None; return Ok(json!({"ok":true})); },
             Request::Snapshot => {},
+            Request::CreateRoom { name, description, minutes } => self.create_room(&name,&description,minutes,now)?,
+            Request::RoomAction { room_id, operation, target_user_id } => self.room_action(room_id,&operation,target_user_id,now)?,
             Request::StartSession { minutes, kind, room_id } => { self.reconcile(now)?; self.start_session(minutes, &kind, room_id, now)?; },
             Request::SessionAction { session_id, operation } => { self.session_action(session_id, &operation, now)?; },
             Request::SaveSettings { display_name, email, focus_minutes, short_break, long_break, theme, notifications, session_points } => {
@@ -110,7 +114,7 @@ impl Database {
         let points:i64=self.conn.query_row("SELECT COALESCE(SUM(amount),0) FROM point_transactions WHERE user_id=?",[id],|r|r.get(0)).safe()?;
         let mut stmt=self.conn.prepare("SELECT amount,reason,created_at,session_id FROM point_transactions WHERE user_id=? ORDER BY id DESC LIMIT 100").safe()?;
         let transactions=stmt.query_map([id],|r|Ok(json!({"amount":r.get::<_,i64>(0)?,"reason":r.get::<_,String>(1)?,"created_at":r.get::<_,i64>(2)?,"session_id":r.get::<_,Option<i64>>(3)?}))).safe()?.collect::<rusqlite::Result<Vec<_>>>().safe()?;
-        Ok(json!({"user":user,"server_now":now,"sessions":sessions,"active_session":active,"points":points,"transactions":transactions}))
+        Ok(json!({"user":user,"server_now":now,"sessions":sessions,"active_session":active,"points":points,"transactions":transactions,"rooms":self.room_list()?}))
     }
 }
 
