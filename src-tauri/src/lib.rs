@@ -1,6 +1,7 @@
 mod db;
 mod focus;
 mod rooms;
+mod analytics;
 use std::sync::Mutex;
 use tauri::Manager;
 

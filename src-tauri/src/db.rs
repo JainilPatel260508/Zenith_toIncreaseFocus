@@ -114,7 +114,7 @@ impl Database {
         let points:i64=self.conn.query_row("SELECT COALESCE(SUM(amount),0) FROM point_transactions WHERE user_id=?",[id],|r|r.get(0)).safe()?;
         let mut stmt=self.conn.prepare("SELECT amount,reason,created_at,session_id FROM point_transactions WHERE user_id=? ORDER BY id DESC LIMIT 100").safe()?;
         let transactions=stmt.query_map([id],|r|Ok(json!({"amount":r.get::<_,i64>(0)?,"reason":r.get::<_,String>(1)?,"created_at":r.get::<_,i64>(2)?,"session_id":r.get::<_,Option<i64>>(3)?}))).safe()?.collect::<rusqlite::Result<Vec<_>>>().safe()?;
-        Ok(json!({"user":user,"server_now":now,"sessions":sessions,"active_session":active,"points":points,"transactions":transactions,"rooms":self.room_list()?}))
+        Ok(json!({"user":user,"server_now":now,"sessions":sessions,"active_session":active,"points":points,"transactions":transactions,"rooms":self.room_list()?,"stats":crate::analytics::stats(&self.conn,id,now)?,"events":self.events(id)?}))
     }
 }
 
