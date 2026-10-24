@@ -19,6 +19,10 @@ pub enum Request {
     Login { email: String, password: String },
     Logout,
     Snapshot,
+    AddResource { domain: String },
+    ResourceAction { resource_id: i64, operation: String },
+    SetFocusMode { enabled: bool },
+    OpenResource { url: String },
     CreateRoom { name: String, description: String, minutes: i64 },
     RoomAction { room_id: i64, operation: String, target_user_id: Option<i64> },
     StartSession { minutes: i64, kind: String, room_id: Option<i64> },
@@ -87,6 +91,10 @@ impl Database {
             },
             Request::Logout => { self.user_id=None; return Ok(json!({"ok":true})); },
             Request::Snapshot => {},
+            Request::AddResource { domain } => self.add_resource(&domain,now)?,
+            Request::ResourceAction { resource_id,operation } => self.resource_action(resource_id,&operation)?,
+            Request::SetFocusMode { enabled } => self.set_focus_mode(enabled)?,
+            Request::OpenResource { url } => return self.check_resource(&url,now),
             Request::CreateRoom { name, description, minutes } => self.create_room(&name,&description,minutes,now)?,
             Request::RoomAction { room_id, operation, target_user_id } => self.room_action(room_id,&operation,target_user_id,now)?,
             Request::StartSession { minutes, kind, room_id } => { self.reconcile(now)?; self.start_session(minutes, &kind, room_id, now)?; },
@@ -114,7 +122,7 @@ impl Database {
         let points:i64=self.conn.query_row("SELECT COALESCE(SUM(amount),0) FROM point_transactions WHERE user_id=?",[id],|r|r.get(0)).safe()?;
         let mut stmt=self.conn.prepare("SELECT amount,reason,created_at,session_id FROM point_transactions WHERE user_id=? ORDER BY id DESC LIMIT 100").safe()?;
         let transactions=stmt.query_map([id],|r|Ok(json!({"amount":r.get::<_,i64>(0)?,"reason":r.get::<_,String>(1)?,"created_at":r.get::<_,i64>(2)?,"session_id":r.get::<_,Option<i64>>(3)?}))).safe()?.collect::<rusqlite::Result<Vec<_>>>().safe()?;
-        Ok(json!({"user":user,"server_now":now,"sessions":sessions,"active_session":active,"points":points,"transactions":transactions,"rooms":self.room_list()?,"stats":crate::analytics::stats(&self.conn,id,now)?,"events":self.events(id)?}))
+        Ok(json!({"user":user,"server_now":now,"sessions":sessions,"active_session":active,"points":points,"transactions":transactions,"rooms":self.room_list()?,"stats":crate::analytics::stats(&self.conn,id,now)?,"events":self.events(id)?,"resources":self.resources(id)?}))
     }
 }
 

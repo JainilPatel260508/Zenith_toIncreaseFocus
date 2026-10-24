@@ -2,12 +2,20 @@ mod db;
 mod focus;
 mod rooms;
 mod analytics;
+mod blocker;
 use std::sync::Mutex;
 use tauri::Manager;
 
 #[tauri::command]
 async fn request(state: tauri::State<'_, Mutex<db::Database>>, request: db::Request) -> Result<serde_json::Value, String> {
-    state.lock().map_err(|_| "Zenith is busy. Please restart the app.".to_string())?.dispatch(request)
+    let open_resource=matches!(&request,db::Request::OpenResource {..});
+    let result=state.lock().map_err(|_| "Zenith is busy. Please restart the app.".to_string())?.dispatch(request)?;
+    if open_resource && result["allowed"].as_bool()==Some(true) {
+        let url=result["url"].as_str().ok_or("Invalid address")?;
+        let status=std::process::Command::new("/usr/bin/open").arg("--").arg(url).status().map_err(|_| "Could not open your default browser.")?;
+        if !status.success(){return Err("Could not open your default browser.".into());}
+    }
+    Ok(result)
 }
 
 pub fn run() {
