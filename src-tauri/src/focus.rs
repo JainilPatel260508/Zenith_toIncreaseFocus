@@ -50,6 +50,7 @@ impl Database {
                 tx.execute("INSERT INTO point_transactions(user_id,session_id,amount,reason,idempotency_key,created_at) VALUES(?,?,?,'Focus session completed',?,?)",params![user,id,points,format!("session:{id}"),end]).safe()?;
                 event(&tx,user,Some(id),"reward_created",json!({"points":points}),end)?;
             }
+            if kind=="focus" {crate::rewards::unlock(&tx,user,end)?;}
         } else {
             match op {
                 "pause" if status=="running" => {

@@ -3,6 +3,7 @@ mod focus;
 mod rooms;
 mod analytics;
 mod blocker;
+mod rewards;
 use std::sync::Mutex;
 use tauri::Manager;
 
