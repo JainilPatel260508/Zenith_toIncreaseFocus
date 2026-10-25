@@ -8,6 +8,9 @@ if (existsSync('.tooling/cargo/bin/cargo')) {
   env.RUSTUP_HOME = resolve('.tooling/rustup')
   env.PATH = `${env.CARGO_HOME}/bin:${env.PATH}`
 }
-const result = spawnSync(resolve('node_modules/.bin/tauri'), process.argv.slice(2), { env, stdio: 'inherit' })
+const result = spawnSync(resolve('node_modules/.bin/tauri'), process.argv.slice(2), {
+  env,
+  stdio: 'inherit',
+})
 if (result.error) console.error(result.error.message)
 process.exit(result.status ?? 1)

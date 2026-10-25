@@ -11,7 +11,12 @@
     "verify:dmg": "node scripts/verify-dmg.mjs",
     "build": "vite build",
     "lint": "oxlint app scripts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.mjs && npm run test:native",
+    "test:native": "node scripts/cargo.mjs test --locked --manifest-path src-tauri/Cargo.toml --lib",
+    "check:native": "node scripts/cargo.mjs check --locked --manifest-path src-tauri/Cargo.toml",
+    "format": "prettier --write app scripts tests vite.config.js package.json src-tauri/tauri.conf.json src-tauri/capabilities/default.json",
+    "test:ui": "node scripts/ui-smoke.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
@@ -24,6 +29,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint": "^1.88.0",
+    "prettier": "^3.9.10",
     "vite": "^8.3.4"
   }
 }
